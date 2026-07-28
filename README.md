@@ -53,8 +53,10 @@ of sync, rebuild only the host virtual-network state:
 
 The repair refuses to interrupt running containers. With an idle Docker
 daemon, it restarts firewalld in a clean order, restores Docker, and asks the
-libvirt network daemon to reload its NAT rules. Host VPN processes are not
-stopped.
+libvirt network daemon to reload its NAT rules. It also enables Docker's
+`ip-forward-no-drop` option so Docker does not replace host forwarding with a
+blanket `DROP` policy. Filtering remains with firewalld and libvirt. Host VPN
+processes are not stopped.
 
 ## First-time base installation
 

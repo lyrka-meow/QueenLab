@@ -2,8 +2,30 @@
 
 set -euo pipefail
 
+ql_enable_docker_forwarding()
+{
+    ql_need jq
+    local source_json merged_json
+    source_json=$(mktemp)
+    merged_json=$(mktemp)
+
+    if sudo test -f /etc/docker/daemon.json; then
+        sudo cat /etc/docker/daemon.json >"$source_json"
+    else
+        printf '{}\n' >"$source_json"
+    fi
+    if ! jq '. + {"ip-forward-no-drop": true}' \
+        "$source_json" >"$merged_json"; then
+        rm -f -- "$source_json" "$merged_json"
+        ql_die "/etc/docker/daemon.json is not valid JSON"
+    fi
+    sudo install -Dm644 "$merged_json" /etc/docker/daemon.json
+    rm -f -- "$source_json" "$merged_json"
+}
+
 ql_restart_firewalld()
 {
+    local allow_libvirt_forwarding=${1:-0}
     local docker_was_active=0
     if systemctl is-active --quiet docker.service; then
         if command -v docker >/dev/null 2>&1 &&
@@ -15,11 +37,21 @@ ql_restart_firewalld()
         sudo systemctl stop docker.service docker.socket
     fi
 
+    if [[ "$allow_libvirt_forwarding" == "1" ]] &&
+        command -v dockerd >/dev/null 2>&1; then
+        ql_info "configuring Docker not to replace host forwarding with DROP"
+        ql_enable_docker_forwarding
+        sudo iptables -P FORWARD ACCEPT
+    fi
+
     ql_warn "restarting firewalld to rebuild its nftables state"
     sudo systemctl restart firewalld.service
 
     if ((docker_was_active)); then
         sudo systemctl start docker.socket docker.service
+        if [[ "$allow_libvirt_forwarding" == "1" ]]; then
+            sudo iptables -P FORWARD ACCEPT
+        fi
     fi
 }
 
@@ -30,7 +62,7 @@ ql_repair_network()
     systemctl is-active --quiet firewalld.service ||
         ql_die "firewalld is not active"
 
-    ql_restart_firewalld
+    ql_restart_firewalld 1
     sudo systemctl restart virtnetworkd.service
 
     if [[ $(ql_sudo_virsh net-info default |
@@ -102,7 +134,7 @@ ql_setup()
     ql_info "installing the KVM/libvirt toolchain"
     sudo pacman -Syu --needed --noconfirm \
         qemu-desktop libvirt virt-install virt-viewer \
-        edk2-ovmf dnsmasq guestfs-tools openssh curl
+        edk2-ovmf dnsmasq guestfs-tools openssh curl jq
 
     local running_kernel
     running_kernel=$(uname -r)
