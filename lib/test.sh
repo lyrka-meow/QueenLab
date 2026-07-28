@@ -273,7 +273,7 @@ ql_destroy_test()
 
     local disk
     disk=$(ql_virsh domblklist "$domain" --details |
-        awk '$2 == "disk" {print $4; exit}')
+        awk '$2 == "disk" && !found {print $4; found=1}')
     if ql_domain_running "$domain"; then
         ql_virsh destroy "$domain" >/dev/null
     fi
