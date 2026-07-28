@@ -195,6 +195,7 @@ repair-network         Rebuild firewalld/libvirt NAT without stopping VPN
 fetch                  Download and verify the EndeavourOS ISO
 create                 Create the one-time installer VM
 open [target]          Open base, latest, or a named domain
+console [target]       Open a paste-friendly serial terminal (exit with Ctrl+])
 seal --user USER       Prepare and freeze the installed base disk
 test RELEASE_TAG       Run a clean MacqueenDE release test
 logs [domain]          Collect diagnostics from an existing test

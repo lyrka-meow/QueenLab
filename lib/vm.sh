@@ -133,26 +133,33 @@ ql_create_base()
     ql_info "after shutdown run: ./queenlab seal --user YOUR_USERNAME"
 }
 
-ql_open()
+ql_resolve_domain()
 {
-    ql_need virt-viewer
     local target=${1:-latest}
-    local domain
     case "$target" in
         base)
-            domain=$QL_BASE_DOMAIN
+            printf '%s\n' "$QL_BASE_DOMAIN"
             ;;
         latest)
+            local domain
             domain=$(ql_virsh list --all --name |
                 awk '/^queenlab-test-/ {print}' |
                 sort |
                 tail -n1)
             [[ -n "$domain" ]] || domain=$QL_BASE_DOMAIN
+            printf '%s\n' "$domain"
             ;;
         *)
-            domain=$target
+            printf '%s\n' "$target"
             ;;
     esac
+}
+
+ql_open()
+{
+    ql_need virt-viewer
+    local domain
+    domain=$(ql_resolve_domain "${1:-latest}")
 
     ql_domain_exists "$domain" ||
         ql_die "domain does not exist: $domain"
@@ -160,6 +167,22 @@ ql_open()
         ql_virsh start "$domain" >/dev/null
     fi
     exec virt-viewer --connect "$QL_CONNECT_URI" --attach "$domain"
+}
+
+ql_console()
+{
+    ql_need virsh
+    local domain
+    domain=$(ql_resolve_domain "${1:-latest}")
+
+    ql_domain_exists "$domain" ||
+        ql_die "domain does not exist: $domain"
+    if ! ql_domain_running "$domain"; then
+        ql_virsh start "$domain" >/dev/null
+    fi
+
+    ql_info "opening $domain serial console; press Ctrl+] to disconnect"
+    ql_virsh console "$domain"
 }
 
 ql_seal_base()

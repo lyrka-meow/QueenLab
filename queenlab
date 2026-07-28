@@ -25,6 +25,7 @@ Usage:
   ./queenlab fetch
   ./queenlab create
   ./queenlab open [base|latest|DOMAIN]
+  ./queenlab console [base|latest|DOMAIN]
   ./queenlab seal --user USERNAME
   ./queenlab test RELEASE_TAG
   ./queenlab logs [DOMAIN]
@@ -59,6 +60,9 @@ case "$command_name" in
         ;;
     open)
         ql_open "$@"
+        ;;
+    console)
+        ql_console "$@"
         ;;
     seal)
         ql_seal_base "$@"
