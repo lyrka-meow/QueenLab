@@ -2,6 +2,26 @@
 
 set -euo pipefail
 
+ql_restart_firewalld()
+{
+    local docker_interfaces=
+    if firewall-cmd --get-zones 2>/dev/null |
+        tr ' ' '\n' |
+        grep -qx docker; then
+        docker_interfaces=$(firewall-cmd --zone=docker --list-interfaces \
+            2>/dev/null || true)
+    fi
+
+    ql_warn "restarting firewalld to rebuild its nftables state"
+    sudo systemctl restart firewalld.service
+
+    local interface
+    for interface in $docker_interfaces; do
+        sudo firewall-cmd --zone=docker --add-interface="$interface" \
+            >/dev/null
+    done
+}
+
 ql_doctor()
 {
     local failed=0
@@ -86,8 +106,8 @@ ql_setup()
             grep -qx libvirt; then
             [[ -f /usr/lib/firewalld/zones/libvirt.xml ]] ||
                 ql_die "firewalld is active, but its libvirt zone is missing"
-            ql_info "reloading firewalld to discover the installed libvirt zone"
-            sudo firewall-cmd --reload >/dev/null
+            ql_info "restarting firewalld to discover the installed libvirt zone"
+            ql_restart_firewalld
         fi
         firewall-cmd --get-zones 2>/dev/null |
             tr ' ' '\n' |
@@ -103,7 +123,20 @@ ql_setup()
     fi
     if [[ $(sudo virsh --connect "$QL_CONNECT_URI" net-info default |
         awk '/Active:/ {print $2}') != "yes" ]]; then
-        sudo virsh --connect "$QL_CONNECT_URI" net-start default >/dev/null
+        local network_error
+        if ! network_error=$(sudo virsh --connect "$QL_CONNECT_URI" \
+            net-start default 2>&1); then
+            if systemctl is-active --quiet firewalld.service &&
+                [[ "$network_error" == *FirewallD1.Exception* ||
+                    "$network_error" == *COMMAND_FAILED* ]]; then
+                ql_restart_firewalld
+                sudo virsh --connect "$QL_CONNECT_URI" \
+                    net-start default >/dev/null
+            else
+                printf '%s\n' "$network_error" >&2
+                ql_die "failed to start the default libvirt network"
+            fi
+        fi
     fi
     sudo virsh --connect "$QL_CONNECT_URI" net-autostart default >/dev/null
 
