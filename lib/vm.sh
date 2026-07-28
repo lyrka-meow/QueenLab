@@ -198,7 +198,7 @@ ql_seal_base()
     ql_info "preparing the offline base image for automated tests"
     sudo virt-customize \
         -a "$QL_BASE_DISK" \
-        --network \
+        --no-network \
         --copy-in "$QL_ROOT/guest/prepare-base.sh:/root" \
         --run-command "bash /root/prepare-base.sh '$guest_user'" \
         --ssh-inject "$guest_user:file:$QL_KEY.pub" \

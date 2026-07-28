@@ -74,7 +74,18 @@ Complete the normal graphical EndeavourOS installation:
 3. Install to the whole virtual disk.
 4. Create a normal user.
 5. Finish the installer.
-6. Shut the virtual machine down completely.
+6. Boot the installed system and log in on its text console.
+7. Install the small test baseline:
+
+   ```bash
+   sudo pacman -Syu --needed sddm openssh qemu-guest-agent sudo curl tar
+   sudo systemctl enable sddm.service
+   sudo systemctl set-default graphical.target
+   ```
+
+8. Configure SDDM exactly as you want the clean pre-Macqueen system to look.
+   Do not create a Macqueen session or Macqueen autologin.
+9. Shut the virtual machine down completely with `sudo poweroff`.
 
 Then convert it to an immutable test base:
 
@@ -82,12 +93,12 @@ Then convert it to an immutable test base:
 ./queenlab seal --user YOUR_USERNAME
 ```
 
-`seal` works on the powered-off disk. It installs the shared guest baseline
-(including SDDM, SSH and the QEMU guest agent), injects QueenLab's dedicated SSH key,
-enables the required services, and records the guest username. The base disk is
-made read-only after preparation. Its domain template and UEFI variables are retained
-so every disposable VM boots exactly
-like the installed base.
+`seal` works completely offline on the powered-off disk. It does not download,
+install, upgrade, or configure SDDM. It verifies the manually installed baseline,
+injects QueenLab's dedicated SSH key, enables only SSH and QEMU Guest Agent, and
+records the guest username. The base disk is then made read-only. Its domain
+template and UEFI variables are retained so every disposable VM starts from this
+exact pre-Macqueen state.
 
 ## Test MacqueenDE
 
@@ -97,9 +108,11 @@ Run a release in a fresh VM:
 ./queenlab test v0.1.0-alpha.4
 ```
 
-The test upgrades the clean rolling-release guest, installs the exact
-MacqueenDE tag, switches the guest to SDDM, configures one autologin into the
-`macqueende.desktop` session, reboots, and watches the compositor.
+The test runs the public MacqueenDE installer for the exact requested tag without
+preinstalling its dependencies. After the installer succeeds, QueenLab adds an
+autologin into `macqueende.desktop` only to that disposable overlay, reboots it,
+and watches the compositor. The sealed base and its SDDM configuration are never
+modified.
 
 Open the most recent test visually:
 
