@@ -40,7 +40,7 @@ Install and configure the required packages:
 Log out and back in if setup adds the current user to the `libvirt` group.
 The command is safe to rerun after an interrupted setup; it also reloads an
 active firewalld instance when the newly installed `libvirt` zone is not yet
-visible.
+visible and enables the modular libvirt storage socket.
 
 ## First-time base installation
 

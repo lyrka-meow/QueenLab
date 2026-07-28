@@ -14,6 +14,18 @@ ql_create_base()
     if ql_domain_exists "$QL_BASE_DOMAIN"; then
         ql_die "domain $QL_BASE_DOMAIN already exists"
     fi
+
+    if [[ -f "$QL_BASE_DISK" && ! -f "$QL_METADATA" ]]; then
+        local actual_size
+        actual_size=$(qemu-img info --output=json "$QL_BASE_DISK" |
+            sed -n 's/^[[:space:]]*"actual-size":[[:space:]]*\\([0-9]*\\),*$/\1/p' |
+            head -n1)
+        if [[ "$actual_size" =~ ^[0-9]+$ ]] &&
+            ((actual_size <= 1048576)); then
+            ql_warn "removing an empty disk left by a failed create: $QL_BASE_DISK"
+            rm -f -- "$QL_BASE_DISK"
+        fi
+    fi
     [[ ! -e "$QL_BASE_DISK" ]] ||
         ql_die "base disk already exists: $QL_BASE_DISK"
 
@@ -27,7 +39,7 @@ ql_create_base()
     fi
 
     ql_info "creating the EndeavourOS installer VM"
-    virt-install \
+    if ! virt-install \
         --connect "$QL_CONNECT_URI" \
         --name "$QL_BASE_DOMAIN" \
         --memory "$QL_MEMORY_MB" \
@@ -44,7 +56,13 @@ ql_create_base()
         --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0 \
         --os-variant archlinux \
         --noautoconsole \
-        --wait 0
+        --wait 0; then
+        if ! ql_domain_exists "$QL_BASE_DOMAIN"; then
+            rm -f -- "$QL_BASE_DISK"
+            ql_warn "removed the empty disk from the failed create"
+        fi
+        ql_die "failed to create the installer VM"
+    fi
 
     ql_info "the installer is running"
     ql_info "finish the graphical EndeavourOS installation, create a user, then shut the VM down"

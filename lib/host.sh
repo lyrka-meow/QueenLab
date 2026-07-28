@@ -66,7 +66,8 @@ ql_setup()
     if systemctl list-unit-files --no-legend virtqemud.socket 2>/dev/null |
         grep -q '^virtqemud.socket'; then
         sudo systemctl enable --now \
-            virtqemud.socket virtnetworkd.socket virtlogd.socket
+            virtqemud.socket virtnetworkd.socket virtstoraged.socket \
+            virtlogd.socket
     else
         sudo systemctl enable --now libvirtd.service
     fi
