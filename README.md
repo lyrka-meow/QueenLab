@@ -150,7 +150,9 @@ cp config/defaults.env ~/.config/queenlab/config.env
 ```
 
 Common overrides include VM memory, CPU count, disk size, 3D acceleration,
-storage directory, boot timeout, and the pinned EndeavourOS ISO.
+render node, storage directory, boot timeout, and the pinned EndeavourOS ISO.
+QueenLab prefers the first PCI render node for VirGL and retries with software
+rendering when the host EGL implementation cannot initialize it.
 
 The current default is the official EndeavourOS Titan Neo 2026.04.27 image.
 The checksum is pinned in [`config/defaults.env`](config/defaults.env) and can

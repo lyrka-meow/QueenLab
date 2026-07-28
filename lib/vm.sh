@@ -2,44 +2,55 @@
 
 set -euo pipefail
 
-ql_create_base()
+ql_cleanup_failed_base()
 {
-    ql_need virsh
-    ql_need virt-install
-    ql_need qemu-img
-
-    ql_fetch_iso
-    ql_ensure_key
-
     if ql_domain_exists "$QL_BASE_DOMAIN"; then
-        ql_die "domain $QL_BASE_DOMAIN already exists"
-    fi
-
-    if [[ -f "$QL_BASE_DISK" && ! -f "$QL_METADATA" ]]; then
-        local actual_size
-        actual_size=$(qemu-img info --output=json "$QL_BASE_DISK" |
-            sed -n 's/^[[:space:]]*"actual-size":[[:space:]]*\\([0-9]*\\),*$/\1/p' |
-            head -n1)
-        if [[ "$actual_size" =~ ^[0-9]+$ ]] &&
-            ((actual_size <= 1048576)); then
-            ql_warn "removing an empty disk left by a failed create: $QL_BASE_DISK"
-            rm -f -- "$QL_BASE_DISK"
+        if ql_domain_running "$QL_BASE_DOMAIN"; then
+            ql_virsh destroy "$QL_BASE_DOMAIN" >/dev/null
         fi
+        ql_virsh undefine "$QL_BASE_DOMAIN" --nvram >/dev/null 2>&1 ||
+            ql_virsh undefine "$QL_BASE_DOMAIN" >/dev/null 2>&1 ||
+            true
     fi
-    [[ ! -e "$QL_BASE_DISK" ]] ||
-        ql_die "base disk already exists: $QL_BASE_DISK"
+    rm -f -- "$QL_BASE_DISK"
+}
 
-    qemu-img create -f qcow2 "$QL_BASE_DISK" "${QL_DISK_SIZE_GB}G"
+ql_base_render_node()
+{
+    if [[ -n "$QL_RENDER_NODE" ]]; then
+        printf '%s\n' "$QL_RENDER_NODE"
+        return
+    fi
 
+    local candidate
+    for candidate in /dev/dri/by-path/*-render /dev/dri/renderD*; do
+        if [[ -e "$candidate" ]]; then
+            readlink -f -- "$candidate"
+            return
+        fi
+    done
+}
+
+ql_install_base_domain()
+{
+    local enable_3d=$1
+    local output_log=$2
     local graphics="spice,listen=none"
     local video="virtio"
-    if [[ "$QL_ENABLE_3D" == "1" ]]; then
+
+    if [[ "$enable_3d" == "1" ]]; then
+        local render_node
+        render_node=$(ql_base_render_node)
         graphics+=",gl.enable=yes"
         video+=",accel3d=yes"
+        if [[ -n "$render_node" ]]; then
+            graphics+=",rendernode=$render_node"
+            ql_info "using VirGL render node: $render_node"
+        fi
     fi
 
-    ql_info "creating the EndeavourOS installer VM"
-    if ! virt-install \
+    set +e
+    virt-install \
         --connect "$QL_CONNECT_URI" \
         --name "$QL_BASE_DOMAIN" \
         --memory "$QL_MEMORY_MB" \
@@ -56,13 +67,65 @@ ql_create_base()
         --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0 \
         --os-variant archlinux \
         --noautoconsole \
-        --wait 0; then
-        if ! ql_domain_exists "$QL_BASE_DOMAIN"; then
-            rm -f -- "$QL_BASE_DISK"
-            ql_warn "removed the empty disk from the failed create"
-        fi
-        ql_die "failed to create the installer VM"
+        --wait 0 2>&1 |
+        tee "$output_log"
+    local install_rc=${PIPESTATUS[0]}
+    set -e
+    return "$install_rc"
+}
+
+ql_create_base()
+{
+    ql_need virsh
+    ql_need virt-install
+    ql_need qemu-img
+
+    ql_fetch_iso
+    ql_ensure_key
+
+    if ql_domain_exists "$QL_BASE_DOMAIN"; then
+        ql_die "domain $QL_BASE_DOMAIN already exists"
     fi
+
+    if [[ -f "$QL_BASE_DISK" && ! -f "$QL_METADATA" ]]; then
+        local actual_size
+        actual_size=$(qemu-img info --output=json "$QL_BASE_DISK" |
+            sed -n 's/^[[:space:]]*"actual-size":[[:space:]]*\([0-9]*\),*$/\1/p' |
+            head -n1)
+        if [[ "$actual_size" =~ ^[0-9]+$ ]] &&
+            ((actual_size <= 1048576)); then
+            ql_warn "removing an empty disk left by a failed create: $QL_BASE_DISK"
+            rm -f -- "$QL_BASE_DISK"
+        fi
+    fi
+    [[ ! -e "$QL_BASE_DISK" ]] ||
+        ql_die "base disk already exists: $QL_BASE_DISK"
+
+    qemu-img create -f qcow2 "$QL_BASE_DISK" "${QL_DISK_SIZE_GB}G"
+
+    ql_info "creating the EndeavourOS installer VM"
+    local install_log
+    install_log=$(mktemp)
+    if ! ql_install_base_domain "$QL_ENABLE_3D" "$install_log"; then
+        if [[ "$QL_ENABLE_3D" == "1" ]] &&
+            grep -Eq 'eglInitialize failed|EGL_NOT_INITIALIZED|render node init failed' \
+                "$install_log"; then
+            ql_warn "VirGL failed; retrying the installer VM with software rendering"
+            ql_cleanup_failed_base
+            qemu-img create -f qcow2 "$QL_BASE_DISK" \
+                "${QL_DISK_SIZE_GB}G" >/dev/null
+            if ! ql_install_base_domain 0 "$install_log"; then
+                ql_cleanup_failed_base
+                rm -f -- "$install_log"
+                ql_die "failed to create the installer VM without 3D acceleration"
+            fi
+        else
+            ql_cleanup_failed_base
+            rm -f -- "$install_log"
+            ql_die "failed to create the installer VM"
+        fi
+    fi
+    rm -f -- "$install_log"
 
     ql_info "the installer is running"
     ql_info "finish the graphical EndeavourOS installation, create a user, then shut the VM down"
