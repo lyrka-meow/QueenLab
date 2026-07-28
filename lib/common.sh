@@ -43,7 +43,12 @@ ql_need()
 
 ql_virsh()
 {
-    virsh --connect "$QL_CONNECT_URI" "$@"
+    LC_ALL=C virsh --connect "$QL_CONNECT_URI" "$@"
+}
+
+ql_sudo_virsh()
+{
+    sudo env LC_ALL=C virsh --connect "$QL_CONNECT_URI" "$@"
 }
 
 ql_domain_exists()

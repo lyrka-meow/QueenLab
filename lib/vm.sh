@@ -231,7 +231,7 @@ ql_status()
 {
     printf 'Base disk: %s\n' "$QL_BASE_DISK"
     if [[ -f "$QL_BASE_DISK" ]]; then
-        qemu-img info "$QL_BASE_DISK" | sed -n '1,8p'
+        qemu-img info --force-share "$QL_BASE_DISK" | sed -n '1,8p'
     else
         printf '  not created\n'
     fi

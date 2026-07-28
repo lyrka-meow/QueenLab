@@ -125,30 +125,28 @@ ql_setup()
             ql_die "firewalld did not load the libvirt zone"
     fi
 
-    if ! sudo virsh --connect "$QL_CONNECT_URI" net-info default >/dev/null 2>&1; then
+    if ! ql_sudo_virsh net-info default >/dev/null 2>&1; then
         [[ -f /usr/share/libvirt/networks/default.xml ]] ||
             ql_die "libvirt default network template is missing"
-        sudo virsh --connect "$QL_CONNECT_URI" \
-            net-define /usr/share/libvirt/networks/default.xml >/dev/null
+        ql_sudo_virsh net-define \
+            /usr/share/libvirt/networks/default.xml >/dev/null
     fi
-    if [[ $(sudo virsh --connect "$QL_CONNECT_URI" net-info default |
+    if [[ $(ql_sudo_virsh net-info default |
         awk '/Active:/ {print $2}') != "yes" ]]; then
         local network_error
-        if ! network_error=$(sudo virsh --connect "$QL_CONNECT_URI" \
-            net-start default 2>&1); then
+        if ! network_error=$(ql_sudo_virsh net-start default 2>&1); then
             if systemctl is-active --quiet firewalld.service &&
                 [[ "$network_error" == *FirewallD1.Exception* ||
                     "$network_error" == *COMMAND_FAILED* ]]; then
                 ql_restart_firewalld
-                sudo virsh --connect "$QL_CONNECT_URI" \
-                    net-start default >/dev/null
+                ql_sudo_virsh net-start default >/dev/null
             else
                 printf '%s\n' "$network_error" >&2
                 ql_die "failed to start the default libvirt network"
             fi
         fi
     fi
-    sudo virsh --connect "$QL_CONNECT_URI" net-autostart default >/dev/null
+    ql_sudo_virsh net-autostart default >/dev/null
 
     ql_info "host setup completed"
     if ! id -nG | tr ' ' '\n' | grep -qx libvirt; then
