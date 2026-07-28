@@ -21,6 +21,7 @@ QueenLab — reproducible EndeavourOS VM tests for MacqueenDE
 Usage:
   ./queenlab doctor
   ./queenlab setup
+  ./queenlab repair-network
   ./queenlab fetch
   ./queenlab create
   ./queenlab open [base|latest|DOMAIN]
@@ -46,6 +47,9 @@ case "$command_name" in
         ;;
     setup)
         ql_setup "$@"
+        ;;
+    repair-network)
+        ql_repair_network "$@"
         ;;
     fetch)
         ql_fetch_iso "$@"

@@ -4,22 +4,43 @@ set -euo pipefail
 
 ql_restart_firewalld()
 {
-    local docker_interfaces=
-    if firewall-cmd --get-zones 2>/dev/null |
-        tr ' ' '\n' |
-        grep -qx docker; then
-        docker_interfaces=$(firewall-cmd --zone=docker --list-interfaces \
-            2>/dev/null || true)
+    local docker_was_active=0
+    if systemctl is-active --quiet docker.service; then
+        if command -v docker >/dev/null 2>&1 &&
+            [[ -n $(docker ps -q 2>/dev/null) ]]; then
+            ql_die "stop running Docker containers before repairing firewalld"
+        fi
+        docker_was_active=1
+        ql_warn "temporarily stopping the idle Docker daemon"
+        sudo systemctl stop docker.service docker.socket
     fi
 
     ql_warn "restarting firewalld to rebuild its nftables state"
     sudo systemctl restart firewalld.service
 
-    local interface
-    for interface in $docker_interfaces; do
-        sudo firewall-cmd --zone=docker --add-interface="$interface" \
-            >/dev/null
-    done
+    if ((docker_was_active)); then
+        sudo systemctl start docker.socket docker.service
+    fi
+}
+
+ql_repair_network()
+{
+    ql_need virsh
+    ql_need firewall-cmd
+    systemctl is-active --quiet firewalld.service ||
+        ql_die "firewalld is not active"
+
+    ql_restart_firewalld
+    sudo systemctl restart virtnetworkd.service
+
+    if [[ $(ql_sudo_virsh net-info default |
+        awk '/Active:/ {print $2}') != "yes" ]]; then
+        ql_sudo_virsh net-start default >/dev/null
+    fi
+    ql_sudo_virsh net-autostart default >/dev/null
+
+    ql_info "host virtual networking repaired"
+    ql_info "the host VPN was left running"
 }
 
 ql_doctor()

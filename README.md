@@ -44,6 +44,18 @@ state while preserving Docker bridge zone assignments. If a full system
 upgrade replaces the running kernel modules, setup stops with an explicit
 request to reboot before it configures virtual networking.
 
+If another network manager leaves the firewalld, Docker, and libvirt rules out
+of sync, rebuild only the host virtual-network state:
+
+```bash
+./queenlab repair-network
+```
+
+The repair refuses to interrupt running containers. With an idle Docker
+daemon, it restarts firewalld in a clean order, restores Docker, and asks the
+libvirt network daemon to reload its NAT rules. Host VPN processes are not
+stopped.
+
 ## First-time base installation
 
 Create and open the installer VM:
@@ -163,6 +175,7 @@ be compared with the [EndeavourOS download page](https://endeavouros.com/).
 ```text
 doctor                 Check KVM, libvirt, and required tools
 setup                  Install and configure host dependencies
+repair-network         Rebuild firewalld/libvirt NAT without stopping VPN
 fetch                  Download and verify the EndeavourOS ISO
 create                 Create the one-time installer VM
 open [target]          Open base, latest, or a named domain
