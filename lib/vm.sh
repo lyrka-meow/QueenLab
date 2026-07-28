@@ -143,9 +143,12 @@ ql_resolve_domain()
         latest)
             local domain
             domain=$(ql_virsh list --all --name |
-                awk '/^queenlab-test-/ {print}' |
+                awk '/^queenlab-test-/ {
+                    print substr($0, length($0) - 14), $0
+                }' |
                 sort |
-                tail -n1)
+                tail -n1 |
+                cut -d' ' -f2-)
             [[ -n "$domain" ]] || domain=$QL_BASE_DOMAIN
             printf '%s\n' "$domain"
             ;;

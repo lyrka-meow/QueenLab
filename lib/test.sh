@@ -5,9 +5,12 @@ set -euo pipefail
 ql_latest_test_domain()
 {
     ql_virsh list --all --name |
-        awk '/^queenlab-test-/ {print}' |
+        awk '/^queenlab-test-/ {
+            print substr($0, length($0) - 14), $0
+        }' |
         sort |
-        tail -n1
+        tail -n1 |
+        cut -d' ' -f2-
 }
 
 ql_create_test_domain()
@@ -117,12 +120,17 @@ ql_test_release()
     ql_need qemu-img
     ql_need virt-clone
     ql_need virsh
-    ql_need ssh
     ql_load_metadata
 
     local release_tag=${1:-}
+    if [[ "$release_tag" == "--manual" ]]; then
+        ql_start_manual_test
+        return
+    fi
+
+    ql_need ssh
     [[ -n "$release_tag" ]] ||
-        ql_die "usage: ./queenlab test v0.1.0-alpha.4"
+        ql_die "usage: ./queenlab test v0.1.0-alpha.4 | ./queenlab test --manual"
     [[ "$release_tag" =~ ^v[0-9A-Za-z._-]+$ ]] ||
         ql_die "invalid release tag: $release_tag"
     [[ -f "$QL_BASE_DISK" ]] ||
@@ -210,6 +218,26 @@ ql_test_release()
     return 1
 }
 
+ql_start_manual_test()
+{
+    [[ -f "$QL_BASE_DISK" ]] ||
+        ql_die "sealed base disk is missing: $QL_BASE_DISK"
+    [[ -f "$QL_STATE_DIR/base-domain.xml" ]] ||
+        ql_die "base domain template is missing; run seal again"
+    [[ ! -w "$QL_BASE_DISK" ]] ||
+        ql_die "base disk is writable; run seal before testing"
+
+    local stamp domain
+    stamp=$(date +%Y%m%d-%H%M%S)
+
+    ql_info "creating a clean manual overlay"
+    domain=$(ql_create_test_domain manual "$stamp")
+    ql_info "manual test VM started: $domain"
+    ql_info "terminal: ./queenlab console '$domain'"
+    ql_info "display:  ./queenlab open '$domain'"
+    ql_info "QueenLab will not install or configure anything inside this overlay"
+}
+
 ql_collect_existing()
 {
     ql_load_metadata
@@ -226,8 +254,10 @@ ql_collect_existing()
 
 ql_destroy_test()
 {
-    local domain=${1:-}
-    [[ -n "$domain" ]] || domain=$(ql_latest_test_domain)
+    local domain=${1:-latest}
+    if [[ "$domain" == "latest" ]]; then
+        domain=$(ql_latest_test_domain)
+    fi
     [[ "$domain" == queenlab-test-* ]] ||
         ql_die "refusing to remove a non-test domain: ${domain:-empty}"
     ql_domain_exists "$domain" ||

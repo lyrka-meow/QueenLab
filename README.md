@@ -102,7 +102,29 @@ exact pre-Macqueen state.
 
 ## Test MacqueenDE
 
-Run a release in a fresh VM:
+### Manual installer test
+
+Start with this mode when testing the same public command that a real user runs:
+
+```bash
+./queenlab test --manual
+./queenlab console latest
+```
+
+Log in to the disposable guest and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lyrka-meow/MacqueenDE/main/installer/install-github.sh | bash
+```
+
+QueenLab does not install packages, edit SDDM, or enable autologin in manual mode.
+After the installer finishes, reboot the guest and select MacqueenDE in SDDM
+exactly as a normal user would. To return to the frozen pre-Macqueen state, remove
+the disposable VM with `./queenlab destroy latest` and start another manual test.
+
+### Automated release test
+
+Run an exact release in a fresh VM:
 
 ```bash
 ./queenlab test v0.1.0-alpha.4
@@ -197,7 +219,8 @@ create                 Create the one-time installer VM
 open [target]          Open base, latest, or a named domain
 console [target]       Open a paste-friendly serial terminal (exit with Ctrl+])
 seal --user USER       Prepare and freeze the installed base disk
-test RELEASE_TAG       Run a clean MacqueenDE release test
+test RELEASE_TAG       Run an automated MacqueenDE release test
+test --manual          Start an untouched disposable VM for manual installation
 logs [domain]          Collect diagnostics from an existing test
 status                 Show disks, domains, and artifacts
 destroy [domain]       Remove a disposable test and its overlay

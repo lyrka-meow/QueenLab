@@ -27,13 +27,13 @@ Usage:
   ./queenlab open [base|latest|DOMAIN]
   ./queenlab console [base|latest|DOMAIN]
   ./queenlab seal --user USERNAME
-  ./queenlab test RELEASE_TAG
+  ./queenlab test RELEASE_TAG|--manual
   ./queenlab logs [DOMAIN]
   ./queenlab status
   ./queenlab destroy [DOMAIN]
 
 Workflow:
-  setup -> create -> install EndeavourOS once -> seal -> test
+  setup -> create -> install EndeavourOS once -> configure SDDM -> seal -> test
 EOF
 }
 
