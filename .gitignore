@@ -1,0 +1,4 @@
+.queenlab/
+artifacts/
+*.qcow2
+*.iso

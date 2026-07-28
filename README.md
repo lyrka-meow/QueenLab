@@ -1,0 +1,171 @@
+# QueenLab
+
+QueenLab creates disposable EndeavourOS virtual machines for full-session
+MacqueenDE tests. It boots a real guest kernel with systemd, SDDM, logind,
+PipeWire, desktop portals, a virtual DRM device, and the Macqueen compositor.
+
+It intentionally does not use containers. A container cannot reproduce the
+display-manager, seat, DRM, and system-session failures this project is meant
+to catch.
+
+## What it does
+
+- downloads the pinned official EndeavourOS ISO and verifies its SHA-512;
+- creates a KVM/libvirt VM with UEFI, VirtIO storage/network, and VirtIO GPU;
+- turns one manual EndeavourOS installation into a read-only base image;
+- clones its UEFI state and creates a fresh qcow2 overlay for every test;
+- installs the requested GitHub release and configures SDDM autologin;
+- detects whether Macqueen remains alive for a stability window;
+- always keeps the VM available for visual inspection;
+- collects the system journal, user journal, coredumps, SDDM session log,
+  package list, library resolution, process tree, domain XML, and screenshot.
+
+## Host requirements
+
+The automatic setup targets an Arch Linux host with hardware virtualization
+enabled. QueenLab uses the system libvirt connection (`qemu:///system`).
+
+Check the host:
+
+```bash
+./queenlab doctor
+```
+
+Install and configure the required packages:
+
+```bash
+./queenlab setup
+```
+
+Log out and back in if setup adds the current user to the `libvirt` group.
+
+## First-time base installation
+
+Create and open the installer VM:
+
+```bash
+./queenlab create
+./queenlab open base
+```
+
+Complete the normal graphical EndeavourOS installation:
+
+1. Choose the recommended **online** installation.
+2. Select **No Desktop** so the base contains no Plasma/GNOME state.
+3. Install to the whole virtual disk.
+4. Create a normal user.
+5. Finish the installer.
+6. Shut the virtual machine down completely.
+
+Then convert it to an immutable test base:
+
+```bash
+./queenlab seal --user YOUR_USERNAME
+```
+
+`seal` works on the powered-off disk. It injects QueenLab's dedicated SSH key,
+installs OpenSSH and QEMU Guest Agent, enables their services, and records the
+guest username. The base disk is made read-only after preparation. Its domain
+template and UEFI variables are retained so every disposable VM boots exactly
+like the installed base.
+
+## Test MacqueenDE
+
+Run a release in a fresh VM:
+
+```bash
+./queenlab test v0.1.0-alpha.4
+```
+
+The test upgrades the clean rolling-release guest, installs the exact
+MacqueenDE tag, switches the guest to SDDM, configures one autologin into the
+`macqueende.desktop` session, reboots, and watches the compositor.
+
+Open the most recent test visually:
+
+```bash
+./queenlab open
+```
+
+Collect another diagnostic bundle:
+
+```bash
+./queenlab logs
+```
+
+Results are written under `artifacts/`:
+
+```text
+artifacts/0.1.0-alpha.4-YYYYMMDD-HHMMSS/
+├── result.env
+├── domain.xml
+├── domain-info.txt
+├── domain-state.txt
+├── screen.ppm
+└── queenlab-diagnostics/
+    ├── journal-system.txt
+    ├── journal-user.txt
+    ├── coredumps.txt
+    ├── macqueen-session.txt
+    ├── wayland-session.log
+    ├── libraries.txt
+    ├── packages.txt
+    └── processes.txt
+```
+
+## VM lifecycle
+
+Show the base, test domains, and artifacts:
+
+```bash
+./queenlab status
+```
+
+Remove the latest disposable test domain and its overlay:
+
+```bash
+./queenlab destroy
+```
+
+Or remove a specific test:
+
+```bash
+./queenlab destroy queenlab-test-0.1.0-alpha.4-YYYYMMDD-HHMMSS
+```
+
+The read-only base image is never removed by `destroy`.
+
+## Configuration
+
+Copy the defaults and edit the copy:
+
+```bash
+mkdir -p ~/.config/queenlab
+cp config/defaults.env ~/.config/queenlab/config.env
+```
+
+Common overrides include VM memory, CPU count, disk size, 3D acceleration,
+storage directory, boot timeout, and the pinned EndeavourOS ISO.
+
+The current default is the official EndeavourOS Titan Neo 2026.04.27 image.
+The checksum is pinned in [`config/defaults.env`](config/defaults.env) and can
+be compared with the [EndeavourOS download page](https://endeavouros.com/).
+
+## Commands
+
+```text
+doctor                 Check KVM, libvirt, and required tools
+setup                  Install and configure host dependencies
+fetch                  Download and verify the EndeavourOS ISO
+create                 Create the one-time installer VM
+open [target]          Open base, latest, or a named domain
+seal --user USER       Prepare and freeze the installed base disk
+test RELEASE_TAG       Run a clean MacqueenDE release test
+logs [domain]          Collect diagnostics from an existing test
+status                 Show disks, domains, and artifacts
+destroy [domain]       Remove a disposable test and its overlay
+```
+
+QueenLab uses [libvirt](https://libvirt.org/), QEMU
+[VirtIO GPU](https://www.qemu.org/docs/master/system/devices/virtio/virtio-gpu.html),
+and [libguestfs](https://libguestfs.org/virt-customize.1.html).

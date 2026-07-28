@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+# shellcheck source=lib/common.sh
+source "$repo_root/lib/common.sh"
+# shellcheck source=lib/host.sh
+source "$repo_root/lib/host.sh"
+# shellcheck source=lib/vm.sh
+source "$repo_root/lib/vm.sh"
+# shellcheck source=lib/test.sh
+source "$repo_root/lib/test.sh"
+
+usage()
+{
+    cat <<'EOF'
+QueenLab — reproducible EndeavourOS VM tests for MacqueenDE
+
+Usage:
+  ./queenlab doctor
+  ./queenlab setup
+  ./queenlab fetch
+  ./queenlab create
+  ./queenlab open [base|latest|DOMAIN]
+  ./queenlab seal --user USERNAME
+  ./queenlab test RELEASE_TAG
+  ./queenlab logs [DOMAIN]
+  ./queenlab status
+  ./queenlab destroy [DOMAIN]
+
+Workflow:
+  setup -> create -> install EndeavourOS once -> seal -> test
+EOF
+}
+
+command_name=${1:-help}
+if (($#)); then
+    shift
+fi
+
+case "$command_name" in
+    doctor)
+        ql_doctor "$@"
+        ;;
+    setup)
+        ql_setup "$@"
+        ;;
+    fetch)
+        ql_fetch_iso "$@"
+        ;;
+    create)
+        ql_create_base "$@"
+        ;;
+    open)
+        ql_open "$@"
+        ;;
+    seal)
+        ql_seal_base "$@"
+        ;;
+    test)
+        ql_test_release "$@"
+        ;;
+    logs)
+        ql_collect_existing "$@"
+        ;;
+    status)
+        ql_status "$@"
+        ;;
+    destroy)
+        ql_destroy_test "$@"
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        usage >&2
+        ql_die "unknown command: $command_name"
+        ;;
+esac
