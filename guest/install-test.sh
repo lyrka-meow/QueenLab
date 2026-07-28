@@ -7,7 +7,7 @@ guest_user=${2:?guest username is required}
 macqueen_repo=${3:-lyrka-meow/MacqueenDE}
 
 sudo pacman -Syu --needed --noconfirm
-sudo pacman -S --needed --noconfirm sddm curl
+sudo pacman -S --needed --noconfirm curl
 
 installer_url="https://raw.githubusercontent.com/$macqueen_repo/main/installer/install-github.sh?queenlab=$(date +%s)"
 MACQUEENDE_GITHUB_REPO="$macqueen_repo" \

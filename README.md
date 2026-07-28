@@ -82,10 +82,11 @@ Then convert it to an immutable test base:
 ./queenlab seal --user YOUR_USERNAME
 ```
 
-`seal` works on the powered-off disk. It injects QueenLab's dedicated SSH key,
-installs OpenSSH and QEMU Guest Agent, enables their services, and records the
-guest username. The base disk is made read-only after preparation. Its domain
-template and UEFI variables are retained so every disposable VM boots exactly
+`seal` works on the powered-off disk. It installs the shared guest baseline
+(including SDDM, SSH and the QEMU guest agent), injects QueenLab's dedicated SSH key,
+enables the required services, and records the guest username. The base disk is
+made read-only after preparation. Its domain template and UEFI variables are retained
+so every disposable VM boots exactly
 like the installed base.
 
 ## Test MacqueenDE
