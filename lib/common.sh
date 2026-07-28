@@ -81,7 +81,11 @@ ql_guest_ip()
     local source ip
     for source in agent lease arp; do
         ip=$(ql_virsh domifaddr "$domain" --source "$source" 2>/dev/null |
-            awk '$3 == "ipv4" && $4 !~ /^127\\./ {sub(/\\/.*/, "", $4); print $4; exit}')
+            awk '$3 == "ipv4" && $4 !~ /^127\./ {
+                sub(/\/.*/, "", $4)
+                print $4
+                exit
+            }')
         if [[ -n "$ip" ]]; then
             printf '%s\n' "$ip"
             return 0
