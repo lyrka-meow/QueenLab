@@ -40,7 +40,9 @@ Install and configure the required packages:
 Log out and back in if setup adds the current user to the `libvirt` group.
 The command is safe to rerun after an interrupted setup. It enables the
 modular libvirt storage socket and can rebuild a stale firewalld nftables
-state while preserving Docker bridge zone assignments.
+state while preserving Docker bridge zone assignments. If a full system
+upgrade replaces the running kernel modules, setup stops with an explicit
+request to reboot before it configures virtual networking.
 
 ## First-time base installation
 

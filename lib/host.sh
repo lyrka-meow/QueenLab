@@ -83,6 +83,16 @@ ql_setup()
         qemu-desktop libvirt virt-install virt-viewer \
         edk2-ovmf dnsmasq guestfs-tools openssh curl
 
+    local running_kernel
+    running_kernel=$(uname -r)
+    if [[ ! -d "/usr/lib/modules/$running_kernel" ]]; then
+        ql_warn "the running kernel is $running_kernel, but its modules were replaced by an update"
+        ql_die "reboot into the updated kernel, then run ./queenlab setup again"
+    fi
+    if ! sudo modprobe sch_htb; then
+        ql_die "the running kernel cannot provide the sch_htb network scheduler"
+    fi
+
     if systemctl list-unit-files --no-legend virtqemud.socket 2>/dev/null |
         grep -q '^virtqemud.socket'; then
         sudo systemctl enable --now \
