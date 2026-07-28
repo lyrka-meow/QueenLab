@@ -79,6 +79,21 @@ ql_setup()
     sudo install -d -m 0775 -o "$USER" -g libvirt "$QL_STORAGE_DIR/iso"
     ql_ensure_key
 
+    if systemctl is-active --quiet firewalld.service; then
+        if ! firewall-cmd --get-zones 2>/dev/null |
+            tr ' ' '\n' |
+            grep -qx libvirt; then
+            [[ -f /usr/lib/firewalld/zones/libvirt.xml ]] ||
+                ql_die "firewalld is active, but its libvirt zone is missing"
+            ql_info "reloading firewalld to discover the installed libvirt zone"
+            sudo firewall-cmd --reload >/dev/null
+        fi
+        firewall-cmd --get-zones 2>/dev/null |
+            tr ' ' '\n' |
+            grep -qx libvirt ||
+            ql_die "firewalld did not load the libvirt zone"
+    fi
+
     if ! sudo virsh --connect "$QL_CONNECT_URI" net-info default >/dev/null 2>&1; then
         [[ -f /usr/share/libvirt/networks/default.xml ]] ||
             ql_die "libvirt default network template is missing"
