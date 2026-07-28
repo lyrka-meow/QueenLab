@@ -127,7 +127,7 @@ the disposable VM with `./queenlab destroy latest` and start another manual test
 Run an exact release in a fresh VM:
 
 ```bash
-./queenlab test v0.1.0-alpha.4
+./queenlab test rolling
 ```
 
 The test runs the public MacqueenDE installer for the exact requested tag without

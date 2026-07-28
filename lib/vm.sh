@@ -250,7 +250,7 @@ ql_seal_base()
     chmod 0600 "$QL_METADATA"
 
     ql_info "base image sealed"
-    ql_info "run a clean test with: ./queenlab test v0.1.0-alpha.4"
+    ql_info "run a clean test with: ./queenlab test rolling"
 }
 
 ql_status()

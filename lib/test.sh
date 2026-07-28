@@ -130,9 +130,11 @@ ql_test_release()
 
     ql_need ssh
     [[ -n "$release_tag" ]] ||
-        ql_die "usage: ./queenlab test v0.1.0-alpha.4 | ./queenlab test --manual"
-    [[ "$release_tag" =~ ^v[0-9A-Za-z._-]+$ ]] ||
+        ql_die "usage: ./queenlab test rolling | ./queenlab test --manual"
+    if [[ "$release_tag" != "rolling" &&
+          ! "$release_tag" =~ ^v[0-9A-Za-z._-]+$ ]]; then
         ql_die "invalid release tag: $release_tag"
+    fi
     [[ -f "$QL_BASE_DISK" ]] ||
         ql_die "sealed base disk is missing: $QL_BASE_DISK"
     [[ -f "$QL_STATE_DIR/base-domain.xml" ]] ||
@@ -179,7 +181,13 @@ ql_test_release()
     fi
 
     installed=$(ql_ssh "$ip" 'cat /opt/macqueende/VERSION 2>/dev/null || true')
-    if [[ "$installed" != "${release_tag#v}" ]]; then
+    if [[ -z "$installed" ]]; then
+        ql_warn "release installation failed: /opt/macqueende/VERSION is missing"
+        ql_collect_logs "$domain" "$artifact_dir" install-failed
+        return 1
+    fi
+    if [[ "$release_tag" != "rolling" &&
+          "$installed" != "${release_tag#v}" ]]; then
         ql_warn "release installation failed: expected ${release_tag#v}, got ${installed:-nothing}"
         ql_collect_logs "$domain" "$artifact_dir" install-failed
         return 1
